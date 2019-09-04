@@ -1,6 +1,5 @@
 import { isNumber } from "./utils";
 
-// To check the priority of the operators
 function priority(x) {
   if (x === "(") return 0;
   if (x === "+" || x === "-") return 1;
@@ -8,7 +7,6 @@ function priority(x) {
   if (x === "^") return 3;
 }
 
-// To convert the infix expression into postfix expression
 function infixToPostfix(infix) {
   let postfix = [],
     stack = [];
@@ -31,7 +29,6 @@ function infixToPostfix(infix) {
   return postfix;
 }
 
-// To evaluate a postfix expression
 function evaluatePostfix(expression) {
   let result = [];
   expression.forEach(item => {
@@ -70,5 +67,5 @@ function evaluatePostfix(expression) {
 
 export default function evaluate(infix) {
   let postfix = infixToPostfix(infix);
-  return evaluatePostfix(postfix);
+  return evaluatePostfix(postfix) || 0;
 }

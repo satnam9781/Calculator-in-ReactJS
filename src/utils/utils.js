@@ -1,9 +1,14 @@
 function isDecimal(number) {
-  return parseInt(number) !== Number(number);
+  return number.toString().includes(".");
 }
 
 function isNumber(value) {
   return !isNaN(parseInt(value));
+}
+
+function isOperator(operator) {
+  const operators = ["+", "-", "/", "*", "^"];
+  return operators.includes(operator);
 }
 
 function last(element) {
@@ -11,4 +16,4 @@ function last(element) {
   return element.toString().slice(-1) || "";
 }
 
-export { isDecimal, isNumber, last };
+export { isDecimal, isNumber, isOperator, last };
