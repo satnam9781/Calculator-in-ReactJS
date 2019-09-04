@@ -1,8 +1,8 @@
 import React, { Component } from "react";
-import Display from "./Display";
-import Keypad from "./Keypad";
-import NavigationButtons from "./NavigationButtons";
-import { isDecimal, isNumber, last } from "./utils/utils";
+import Display from "./components/display";
+import Keypad from "./components/keypad";
+import NavigationButtons from "./components/navigationButtons";
+import { isDecimal, isNumber, isOperator, last } from "./utils/utils";
 import evaluate from "./utils/evaluate";
 
 class Calculator extends Component {
@@ -30,22 +30,50 @@ class Calculator extends Component {
     super();
 
     window.addEventListener("keydown", e => {
-      let operators = ["+", "-", "/", "*", "^"];
       if (isNumber(e.key)) this.handleAction(e);
       else if (e.key === "Backspace") this.handleBackspace();
-      else if (e.key === ".") this.handleAction(e, "•");
-      else if (e.key === "Enter") this.handleAction(e, "=");
-      else if (operators.includes(e.key)) {
+      else if (e.key === ".") this.pushDot();
+      else if (e.key === "Enter") this.calculate();
+      else if (isOperator(e.key)) {
         this.handleAction(e, e.key);
       }
     });
   }
 
+  handleAction = (e, key) => {
+    let { values } = this.state;
+    let value = key
+      ? key
+      : e.type === "keydown"
+      ? e.key
+      : this.getOperator(e.target.innerHTML);
+
+    if (isNumber(value)) {
+      this.pushDigit(value);
+    } else {
+      if (value === "C") {
+        this.handleClear();
+        return false;
+      } else if (isOperator(value) && values.length) {
+        this.pushOperator(value);
+      } else if (value === "=") {
+        this.calculate();
+      } else if (value === "•") {
+        this.pushDot();
+      } else if (value === "( )") {
+        this.handleBrackets();
+      } else if (value === "±") {
+        this.handlePlusMinus();
+      }
+    }
+    this.updateState();
+  };
+
   handleBackspace = () => {
     let { values } = this.state;
     if (isNumber(last(values)) || last(values).endsWith(".")) {
       if (last(values).length === 1 || values[0] === "-") values.pop();
-      else values.push(values.pop().slice(0, -1));
+      else values.push(values.pop().toString().slice(0, -1));
     } else {
       values.pop();
     }
@@ -53,122 +81,123 @@ class Calculator extends Component {
     this.updateState();
   };
 
-  handleAction = (e, val) => {
-    let operators = ["+", "–", "÷", "×", "%", "-", "/", "*", "^", "xⁿ"];
-    let value;
-
-    if (val) value = val;
-    else {
-      if (e.type === "keydown") value = e.key;
-      else value = e.target.innerHTML;
-    }
-
-    let { result, values } = this.state;
-
-    if (isNaN(value)) {
-      if (value === "C") {
-        this.setState({
-          result: 0,
-          expression: "",
-          values: []
-        });
-        return;
-      } else if (operators.includes(value) && values.length) {
-        if (isNumber(last(values)) || last(values) === ")") {
-          if (val) {
-            values.push(val);
-          } else {
-            values.push(this.getOperator(value));
-          }
-        } else {
-          if (val && val !== last(values)) {
-            values.pop();
-            values.push(value);
-          } else if (value !== last(values)) {
-            values.pop();
-            values.push(this.getOperator(value));
-          }
-        }
-      } else if (value === "•") {
-        if (isNumber(last(values)) && !isDecimal(last(values))) {
-          values.push(`${values.pop()}.`);
-        }
-      } else if (value === "=") {
-        let res = document.getElementById("resultContainer").classList;
-        let exp = document.getElementById("expressionContainer").classList;
-        res.add("transition-4s", "result-slide-up");
-        exp.add("transition-2s", "slide-up");
-        setTimeout(() => {
-          res.remove("transition-4s", "result-slide-up");
-          exp.remove("transition-2s", "slide-up");
-          this.setState({
-            values: [result],
-            expression: result.toString(),
-            result: 0
-          });
-          return;
-        }, 400);
-      } else if (value === "( )") {
-        let leftBracketCount = values.filter(i => i === "(").length;
-        let rightBracketCount = values.filter(i => i === ")").length;
-        let bracket = leftBracketCount === rightBracketCount ? "(" : ")";
-
-        if (isNumber(last(values)) && bracket === "(") values.push("*");
-        values.push(bracket);
-      } else if (value === "±") {
-        if (isNumber(last(values))) {
-          if (last(values).toString()[0] !== "-") {
-            let lastNumber = values.pop();
-            values.push("(", `-${lastNumber}`);
-          } else {
-            let lastNumber = Math.abs(values.pop());
-            values.pop();
-            values.push(lastNumber);
-          }
-          this.updateState();
-        }
-      }
-    } else {
-      if (!isNumber(last(values))) {
-        if (last(values) === ")") values.push("*");
-        values.push(value);
-      } else values.push(`${values.pop() || ""}${value}`);
-    }
-
-    this.setState({ result, values });
-    this.updateState();
+  handleClear = () => {
+    this.setState({
+      result: 0,
+      expression: "",
+      values: []
+    });
   };
 
-  printExpression(values) {
+  pushOperator = operator => {
+    let { values } = this.state;
+    if (isOperator(last(values)) && !last(values).match(/\(|\)/)) {
+      values.pop();
+    }
+    if (operator !== last(values) && last(values) !== "(")
+      values.push(operator);
+    this.setState({ values });
+  };
+
+  pushDot = () => {
+    let { values } = this.state;
+    if (isNumber(last(values)) && !isDecimal(last(values))) {
+      values.push(`${values.pop()}.`);
+    }
+    this.setState({ values });
+  };
+
+  calculate = () => {
+    const { result } = this.state;
+    let res = document.getElementById("resultContainer").classList;
+    let exp = document.getElementById("expressionContainer").classList;
+    res.add("transition-4s", "result-slide-up");
+    exp.add("transition-2s", "slide-up");
+    setTimeout(() => {
+      res.remove("transition-4s", "result-slide-up");
+      exp.remove("transition-2s", "slide-up");
+      let final = result === Infinity ? "0" : result.toString();
+      this.setState({
+        values: [final],
+        expression: final,
+        result: 0
+      });
+      return;
+    }, 400);
+  };
+
+  handleBrackets = () => {
+    let { values } = this.state;
+    let leftCount = values.filter(i => i === "(").length;
+    let rightCount = values.filter(i => i === ")").length;
+    let bracket = leftCount === rightCount ? "(" : ")";
+
+    if (isNumber(last(values)) && bracket === "(") values.push("*");
+    if (!last(values).match(/\(|\)/) || rightCount < leftCount) values.push(bracket);
+    if (isOperator(values[values.length - 2]) && bracket === ")") values.pop();
+    this.setState({ values });
+  };
+
+  handlePlusMinus = () => {
+    let { values } = this.state;
+    if (isNumber(last(values))) {
+      if (last(values).toString()[0] !== "-") {
+        let lastNumber = values.pop();
+        values.push("(", `-${lastNumber}`);
+      } else {
+        let lastNumber = Math.abs(values.pop());
+        values.pop();
+        values.push(lastNumber);
+      }
+    }
+    this.setState({ values });
+  };
+
+  pushDigit = value => {
+    let { values } = this.state;
+    if (!isNumber(last(values))) {
+      if (last(values) === ")") values.push("*");
+      values.push(value);
+    } else values.push(`${values.pop() || ""}${value}`);
+
+    this.setState({ values });
+  };
+
+  printExpression = values => {
     let expression = "";
     values.forEach(item => {
       if (isNumber(item)) expression += item.toString();
       else expression += ` ${this.getSymbol(item)} `;
     });
     return expression;
-  }
+  };
 
-  getOperator(symbol) {
+  getOperator = symbol => {
     let symbols = ["+", "–", "÷", "×", "xⁿ"];
     let operators = ["+", "-", "/", "*", "^"];
-    return operators[symbols.indexOf(symbol)];
-  }
+    return operators[symbols.indexOf(symbol)] || symbol;
+  };
 
-  getSymbol(operator) {
+  getSymbol = operator => {
     let operators = ["+", "-", "/", "*", "^"];
     let symbols = ["+", "–", "÷", "×", "^"];
     return symbols[operators.indexOf(operator)] || operator;
-  }
+  };
 
-  updateState() {
+  updateState = () => {
     let { result, values } = this.state;
-    if (!isNumber(last(values)))
+    if (last(values) === "(")
+      result = evaluate(values.slice(0, values.length - 2));
+    else if (!isNumber(last(values)))
       result = evaluate(values.slice(0, values.length - 1));
     else if (!values.length) result = 0;
     else result = evaluate(values);
 
+    if(result.toString().length > 9)
+    result = Number(result).toExponential(3);
+
     this.setState({ result, expression: this.printExpression(values) });
-  }
+  };
 
   render() {
     const { expression, result, keys, keyColors } = this.state;
